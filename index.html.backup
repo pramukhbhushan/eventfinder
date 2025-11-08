@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UMD Event Map - University of Maryland Campus Events</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin="" />
+
+    <!-- Leaflet Fullscreen Plugin -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen@2.4.0/Control.FullScreen.css" />
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --umd-red: #dc2626;
+            --academic-blue: #2563eb;
+            --social-green: #16a34a;
+            --dark-gray: #1f2937;
+            --light-gray: #f3f4f6;
+            --border-gray: #e5e7eb;
+            --text-gray: #4b5563;
+            --white: #ffffff;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: var(--dark-gray);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: 300px;
+            background-color: var(--white);
+            border-right: 1px solid var(--border-gray);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-header {
+            background: linear-gradient(135deg, var(--umd-red) 0%, #b91c1c 100%);
+            color: var(--white);
+            padding: 24px 20px;
+            border-bottom: 3px solid #991b1b;
+        }
+
+        .sidebar-header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .sidebar-header p {
+            font-size: 13px;
+            opacity: 0.95;
+            font-weight: 400;
+        }
+
+        .filters-section {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-gray);
+            background-color: var(--light-gray);
+        }
+
+        .filters-title {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--dark-gray);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .filter-item {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .filter-item:hover {
+            background-color: var(--white);
+        }
+
+        .filter-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            margin-right: 10px;
+            accent-color: var(--umd-red);
+        }
+
+        .filter-item label {
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .category-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            border: 2px solid var(--white);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .category-dot.academic { background-color: var(--academic-blue); }
+        .category-dot.social { background-color: var(--social-green); }
+        .category-dot.umd-sponsored { background-color: var(--umd-red); }
+
+        .event-counter {
+            padding: 16px 20px;
+            background-color: var(--white);
+            border-bottom: 1px solid var(--border-gray);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-gray);
+        }
+
+        .event-counter span {
+            color: var(--umd-red);
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .events-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .event-card {
+            background-color: var(--white);
+            border: 1px solid var(--border-gray);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 4px solid var(--border-gray);
+        }
+
+        .event-card:hover {
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .event-card.academic { border-left-color: var(--academic-blue); }
+        .event-card.social { border-left-color: var(--social-green); }
+        .event-card.umd-sponsored { border-left-color: var(--umd-red); }
+
+        .event-card-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: var(--dark-gray);
+            line-height: 1.3;
+        }
+
+        .event-card-meta {
+            font-size: 12px;
+            color: var(--text-gray);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .event-card-category {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-top: 6px;
+        }
+
+        .event-card-category.academic {
+            background-color: rgba(37, 99, 235, 0.1);
+            color: var(--academic-blue);
+        }
+
+        .event-card-category.social {
+            background-color: rgba(22, 163, 74, 0.1);
+            color: var(--social-green);
+        }
+
+        .event-card-category.umd-sponsored {
+            background-color: rgba(220, 38, 38, 0.1);
+            color: var(--umd-red);
+        }
+
+        .legend {
+            padding: 16px 20px;
+            background-color: var(--light-gray);
+            border-top: 1px solid var(--border-gray);
+            font-size: 12px;
+        }
+
+        .legend-title {
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--dark-gray);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .legend-items {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ===== MAP AREA ===== */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ===== CUSTOM LEAFLET POPUP ===== */
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .custom-popup {
+            min-width: 250px;
+        }
+
+        .popup-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--dark-gray);
+            line-height: 1.3;
+        }
+
+        .popup-info {
+            font-size: 13px;
+            margin-bottom: 6px;
+            color: var(--text-gray);
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .popup-info strong {
+            min-width: 70px;
+            color: var(--dark-gray);
+        }
+
+        .popup-category {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-top: 10px;
+        }
+
+        .popup-category.academic {
+            background-color: var(--academic-blue);
+            color: var(--white);
+        }
+
+        .popup-category.social {
+            background-color: var(--social-green);
+            color: var(--white);
+        }
+
+        .popup-category.umd-sponsored {
+            background-color: var(--umd-red);
+            color: var(--white);
+        }
+
+        /* ===== CUSTOM MARKER ICONS ===== */
+        .custom-marker {
+            width: 32px;
+            height: 32px;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid var(--white);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .custom-marker:hover {
+            transform: rotate(-45deg) scale(1.1);
+        }
+
+        .custom-marker.academic { background-color: var(--academic-blue); }
+        .custom-marker.social { background-color: var(--social-green); }
+        .custom-marker.umd-sponsored { background-color: var(--umd-red); }
+
+        .marker-icon {
+            color: var(--white);
+            font-weight: 900;
+            font-size: 16px;
+            transform: rotate(45deg);
+        }
+
+        /* ===== SCROLLBAR STYLING ===== */
+        .events-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .events-list::-webkit-scrollbar-track {
+            background: var(--light-gray);
+        }
+
+        .events-list::-webkit-scrollbar-thumb {
+            background: var(--border-gray);
+            border-radius: 4px;
+        }
+
+        .events-list::-webkit-scrollbar-thumb:hover {
+            background: var(--text-gray);
+        }
+
+        /* ===== RESPONSIVE DESIGN ===== */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                max-height: 50vh;
+                border-right: none;
+                border-bottom: 2px solid var(--border-gray);
+            }
+
+            .sidebar-header h1 {
+                font-size: 20px;
+            }
+
+            .events-list {
+                max-height: calc(50vh - 250px);
+            }
+
+            .map-container {
+                height: 50vh;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sidebar {
+                max-height: 60vh;
+            }
+
+            .map-container {
+                height: 40vh;
+            }
+
+            .sidebar-header {
+                padding: 16px;
+            }
+
+            .sidebar-header h1 {
+                font-size: 18px;
+            }
+
+            .sidebar-header p {
+                font-size: 12px;
+            }
+
+            .filters-section,
+            .event-counter {
+                padding: 12px 16px;
+            }
+        }
+
+        /* ===== LOADING INDICATOR ===== */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: var(--umd-red);
+            font-weight: 600;
+        }
+
+        /* ===== EMPTY STATE ===== */
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--text-gray);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        .empty-state-text {
+            font-size: 14px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- LEFT SIDEBAR -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>UMD Event Map</h1>
+                <p>Discover campus events in real-time</p>
+            </div>
+
+            <!-- FILTERS -->
+            <div class="filters-section">
+                <div class="filters-title">Filter by Category</div>
+                <div class="filter-group">
+                    <div class="filter-item">
+                        <input type="checkbox" id="filter-academic" checked>
+                        <label for="filter-academic">
+                            <span class="category-dot academic"></span>
+                            Academic Events
+                        </label>
+                    </div>
+                    <div class="filter-item">
+                        <input type="checkbox" id="filter-social" checked>
+                        <label for="filter-social">
+                            <span class="category-dot social"></span>
+                            Social Events
+                        </label>
+                    </div>
+                    <div class="filter-item">
+                        <input type="checkbox" id="filter-umd" checked>
+                        <label for="filter-umd">
+                            <span class="category-dot umd-sponsored"></span>
+                            UMD Sponsored Events
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EVENT COUNTER -->
+            <div class="event-counter">
+                Showing <span id="event-count">0</span> events
+            </div>
+
+            <!-- EVENTS LIST -->
+            <div class="events-list" id="events-list">
+                <!-- Events will be dynamically inserted here -->
+            </div>
+
+            <!-- LEGEND -->
+            <div class="legend">
+                <div class="legend-title">Map Legend</div>
+                <div class="legend-items">
+                    <div class="legend-item">
+                        <span class="category-dot academic"></span>
+                        <span>Academic: Lectures, Workshops, Seminars</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="category-dot social"></span>
+                        <span>Social: Parties, Sports, Networking</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="category-dot umd-sponsored"></span>
+                        <span>Official: University Events, Tours</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAP AREA -->
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
+    <!-- Leaflet Fullscreen Plugin -->
+    <script src="https://unpkg.com/leaflet.fullscreen@2.4.0/Control.FullScreen.js"></script>
+
+    <script>
+        // ===== EVENT DATA =====
+        const eventsData = [
+            // ACADEMIC EVENTS
+            {
+                id: 1,
+                title: "AI & Machine Learning Workshop",
+                category: "academic",
+                date: "2025-11-10",
+                time: "14:00",
+                location: "Computer Science Building",
+                latitude: 38.9890,
+                longitude: -76.9364,
+                description: "Hands-on workshop covering neural networks and deep learning fundamentals.",
+                capacity: 50
+            },
+            {
+                id: 2,
+                title: "Guest Lecture: Climate Change Policy",
+                category: "academic",
+                date: "2025-11-12",
+                time: "16:00",
+                location: "Chemistry Building",
+                latitude: 38.9871,
+                longitude: -76.9427,
+                description: "Distinguished speaker series featuring international climate policy experts.",
+                capacity: 200
+            },
+            {
+                id: 3,
+                title: "Research Symposium: Biotechnology",
+                category: "academic",
+                date: "2025-11-15",
+                time: "10:00",
+                location: "Biology-Psychology Building",
+                latitude: 38.9865,
+                longitude: -76.9393,
+                description: "Annual symposium showcasing cutting-edge biotech research from faculty and students.",
+                capacity: 150
+            },
+            {
+                id: 4,
+                title: "Career Development Seminar",
+                category: "academic",
+                date: "2025-11-18",
+                time: "13:00",
+                location: "Stamp Student Union",
+                latitude: 38.9878,
+                longitude: -76.9447,
+                description: "Professional development workshop on resume writing and interview skills.",
+                capacity: 80
+            },
+            {
+                id: 5,
+                title: "Graduate Student Colloquium",
+                category: "academic",
+                date: "2025-11-20",
+                time: "15:30",
+                location: "McKeldin Library",
+                latitude: 38.9858,
+                longitude: -76.9450,
+                description: "Graduate students present their thesis research across various disciplines.",
+                capacity: 100
+            },
+
+            // SOCIAL EVENTS
+            {
+                id: 6,
+                title: "Terps Game Night",
+                category: "social",
+                date: "2025-11-08",
+                time: "19:00",
+                location: "Eppley Recreation Center",
+                latitude: 38.9912,
+                longitude: -76.9456,
+                description: "Board games, video games, and pizza! All students welcome.",
+                capacity: 120
+            },
+            {
+                id: 7,
+                title: "Friday Night Football Watch Party",
+                category: "social",
+                date: "2025-11-09",
+                time: "20:00",
+                location: "Stamp Student Union",
+                latitude: 38.9878,
+                longitude: -76.9447,
+                description: "Watch the Terps take on rivals with free food and giveaways.",
+                capacity: 300
+            },
+            {
+                id: 8,
+                title: "International Students Mixer",
+                category: "social",
+                date: "2025-11-14",
+                time: "18:00",
+                location: "Stamp Student Union",
+                latitude: 38.9878,
+                longitude: -76.9447,
+                description: "Cultural exchange event with food from around the world.",
+                capacity: 150
+            },
+            {
+                id: 9,
+                title: "Intramural Basketball Tournament",
+                category: "social",
+                date: "2025-11-16",
+                time: "12:00",
+                location: "Eppley Recreation Center",
+                latitude: 38.9912,
+                longitude: -76.9456,
+                description: "3v3 basketball tournament with prizes for winning teams.",
+                capacity: 64
+            },
+            {
+                id: 10,
+                title: "Open Mic Night",
+                category: "social",
+                date: "2025-11-22",
+                time: "19:30",
+                location: "The Clarice Smith Center",
+                latitude: 38.9857,
+                longitude: -76.9312,
+                description: "Showcase your talent! Music, poetry, comedy - all welcome.",
+                capacity: 100
+            },
+
+            // UMD SPONSORED EVENTS
+            {
+                id: 11,
+                title: "Fall Campus Tour",
+                category: "umd-sponsored",
+                date: "2025-11-11",
+                time: "10:00",
+                location: "Memorial Chapel",
+                latitude: 38.9882,
+                longitude: -76.9395,
+                description: "Official guided tour of UMD campus for prospective students and families.",
+                capacity: 40
+            },
+            {
+                id: 12,
+                title: "Homecoming Celebration",
+                category: "umd-sponsored",
+                date: "2025-11-17",
+                time: "11:00",
+                location: "Maryland Stadium",
+                latitude: 38.9906,
+                longitude: -76.9478,
+                description: "Annual homecoming festivities with parade, tailgate, and football game.",
+                capacity: 5000
+            },
+            {
+                id: 13,
+                title: "Career Fair: Engineering & Tech",
+                category: "umd-sponsored",
+                date: "2025-11-13",
+                time: "09:00",
+                location: "Stamp Student Union",
+                latitude: 38.9878,
+                longitude: -76.9447,
+                description: "Meet with 100+ employers recruiting for internships and full-time positions.",
+                capacity: 1000
+            },
+            {
+                id: 14,
+                title: "New Student Orientation",
+                category: "umd-sponsored",
+                date: "2025-11-19",
+                time: "08:30",
+                location: "Stamp Student Union",
+                latitude: 38.9878,
+                longitude: -76.9447,
+                description: "Welcome session for spring semester transfer and international students.",
+                capacity: 250
+            },
+            {
+                id: 15,
+                title: "President's Town Hall",
+                category: "umd-sponsored",
+                date: "2025-11-21",
+                time: "17:00",
+                location: "Memorial Chapel",
+                latitude: 38.9882,
+                longitude: -76.9395,
+                description: "University president addresses students and takes questions on campus initiatives.",
+                capacity: 300
+            }
+        ];
+
+        // ===== APPLICATION STATE =====
+        let map;
+        let markers = [];
+        let activeFilters = {
+            academic: true,
+            social: true,
+            'umd-sponsored': true
+        };
+
+        // ===== INITIALIZE MAP =====
+        function initMap() {
+            // Create map centered on UMD College Park
+            map = L.map('map', {
+                center: [38.9897, -76.9378],
+                zoom: 15,
+                zoomControl: true
+            });
+
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            // Add fullscreen control
+            map.addControl(new L.Control.Fullscreen({
+                position: 'topright'
+            }));
+
+            // Initialize markers
+            createMarkers();
+            updateEventsList();
+            updateEventCounter();
+        }
+
+        // ===== CREATE CUSTOM MARKER ICON =====
+        function createCustomIcon(category) {
+            const iconLetters = {
+                'academic': 'A',
+                'social': 'S',
+                'umd-sponsored': 'U'
+            };
+
+            const iconHtml = `
+                <div class="custom-marker ${category}">
+                    <span class="marker-icon">${iconLetters[category]}</span>
+                </div>
+            `;
+
+            return L.divIcon({
+                html: iconHtml,
+                className: 'custom-div-icon',
+                iconSize: [32, 32],
+                iconAnchor: [16, 32],
+                popupAnchor: [0, -32]
+            });
+        }
+
+        // ===== CREATE POPUP CONTENT =====
+        function createPopupContent(event) {
+            const formattedDate = new Date(event.date).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            const formattedTime = new Date(`2000-01-01T${event.time}`).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+
+            const categoryNames = {
+                'academic': 'Academic Event',
+                'social': 'Social Event',
+                'umd-sponsored': 'UMD Sponsored'
+            };
+
+            return `
+                <div class="custom-popup">
+                    <div class="popup-title">${event.title}</div>
+                    <div class="popup-info">
+                        <strong>Date:</strong>
+                        <span>${formattedDate}</span>
+                    </div>
+                    <div class="popup-info">
+                        <strong>Time:</strong>
+                        <span>${formattedTime}</span>
+                    </div>
+                    <div class="popup-info">
+                        <strong>Location:</strong>
+                        <span>${event.location}</span>
+                    </div>
+                    <div class="popup-info">
+                        <strong>Capacity:</strong>
+                        <span>${event.capacity} attendees</span>
+                    </div>
+                    <div class="popup-info" style="flex-direction: column; align-items: flex-start;">
+                        <strong>Description:</strong>
+                        <span>${event.description}</span>
+                    </div>
+                    <div class="popup-category ${event.category}">${categoryNames[event.category]}</div>
+                </div>
+            `;
+        }
+
+        // ===== CREATE MARKERS =====
+        function createMarkers() {
+            eventsData.forEach(event => {
+                const marker = L.marker([event.latitude, event.longitude], {
+                    icon: createCustomIcon(event.category)
+                });
+
+                marker.bindPopup(createPopupContent(event), {
+                    maxWidth: 300,
+                    className: 'custom-popup-wrapper'
+                });
+
+                marker.eventData = event;
+                markers.push(marker);
+
+                // Add to map if filter is active
+                if (activeFilters[event.category]) {
+                    marker.addTo(map);
+                }
+            });
+        }
+
+        // ===== UPDATE EVENTS LIST IN SIDEBAR =====
+        function updateEventsList() {
+            const eventsList = document.getElementById('events-list');
+            eventsList.innerHTML = '';
+
+            const visibleEvents = eventsData.filter(event => activeFilters[event.category]);
+
+            if (visibleEvents.length === 0) {
+                eventsList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📅</div>
+                        <div class="empty-state-text">No events match your filters.<br>Try selecting different categories.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            visibleEvents.forEach(event => {
+                const eventCard = document.createElement('div');
+                eventCard.className = `event-card ${event.category}`;
+
+                const formattedDate = new Date(event.date).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric'
+                });
+
+                const formattedTime = new Date(`2000-01-01T${event.time}`).toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                });
+
+                const categoryNames = {
+                    'academic': 'Academic',
+                    'social': 'Social',
+                    'umd-sponsored': 'UMD Official'
+                };
+
+                eventCard.innerHTML = `
+                    <div class="event-card-title">${event.title}</div>
+                    <div class="event-card-meta">📅 ${formattedDate} • ⏰ ${formattedTime}</div>
+                    <div class="event-card-meta">📍 ${event.location}</div>
+                    <div class="event-card-category ${event.category}">${categoryNames[event.category]}</div>
+                `;
+
+                eventCard.addEventListener('click', () => {
+                    map.setView([event.latitude, event.longitude], 17, {
+                        animate: true,
+                        duration: 1
+                    });
+
+                    const marker = markers.find(m => m.eventData.id === event.id);
+                    if (marker) {
+                        marker.openPopup();
+                    }
+                });
+
+                eventsList.appendChild(eventCard);
+            });
+        }
+
+        // ===== UPDATE EVENT COUNTER =====
+        function updateEventCounter() {
+            const visibleEvents = eventsData.filter(event => activeFilters[event.category]);
+            document.getElementById('event-count').textContent = visibleEvents.length;
+        }
+
+        // ===== FILTER FUNCTIONALITY =====
+        function setupFilters() {
+            const filterCheckboxes = {
+                'filter-academic': 'academic',
+                'filter-social': 'social',
+                'filter-umd': 'umd-sponsored'
+            };
+
+            Object.keys(filterCheckboxes).forEach(checkboxId => {
+                const checkbox = document.getElementById(checkboxId);
+                const category = filterCheckboxes[checkboxId];
+
+                checkbox.addEventListener('change', (e) => {
+                    activeFilters[category] = e.target.checked;
+                    updateMapMarkers();
+                    updateEventsList();
+                    updateEventCounter();
+                });
+            });
+        }
+
+        // ===== UPDATE MAP MARKERS BASED ON FILTERS =====
+        function updateMapMarkers() {
+            markers.forEach(marker => {
+                const category = marker.eventData.category;
+
+                if (activeFilters[category]) {
+                    if (!map.hasLayer(marker)) {
+                        marker.addTo(map);
+                    }
+                } else {
+                    if (map.hasLayer(marker)) {
+                        map.removeLayer(marker);
+                    }
+                }
+            });
+        }
+
+        // ===== INITIALIZE APPLICATION =====
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            setupFilters();
+        });
+    </script>
+</body>
+</html>
