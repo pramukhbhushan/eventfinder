@@ -1,0 +1,86 @@
+.welcome-banner {
+  position: fixed;
+  top: 0;
+  left: 80px;
+  right: 0;
+  background-color: var(--umd-red);
+  color: var(--white);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.welcome-content {
+  flex: 1;
+}
+
+.welcome-content h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.welcome-content p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  opacity: 0.95;
+}
+
+.welcome-close {
+  background: none;
+  border: none;
+  color: var(--white);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 20px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.welcome-close:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.welcome-close:active {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .welcome-banner {
+    left: 0;
+    padding: 10px 16px;
+  }
+
+  .welcome-content h3 {
+    font-size: 14px;
+  }
+
+  .welcome-content p {
+    font-size: 12px;
+  }
+}

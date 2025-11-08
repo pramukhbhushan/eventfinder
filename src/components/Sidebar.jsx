@@ -54,7 +54,7 @@ const Sidebar = ({ onAddEvent, filters, onFilterChange }) => {
   return (
     <aside className="sidebar">
       <div className="sidebar-title">
-        <h2>UMD</h2>
+        <h2>Terp Finder</h2>
       </div>
 
       <div className="icon-container">
